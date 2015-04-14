@@ -35,15 +35,19 @@ function startSysLogging() {
 cd /opt/couchbase
 mkdir -p var/lib/couchbase var/lib/couchbase/config var/lib/couchbase/data \
     var/lib/couchbase/stats var/lib/couchbase/logs var/lib/moxi
-touch /var/lib/couchbase/logs/dummy.log
+touch var/lib/couchbase/logs/dummy.log
 chown -R couchbase:couchbase var
+
+# Increase ulimits
+ulimit -n 40960
+ulimit -c unlimited
+ulimit -l unlimited
+
 # Start the daemon
 /etc/init.d/couchbase-server start
 
 # keep the process running with call to bash
 cat /app/resources/couchbase.txt
-echo "";
-cat /app/resources/docker.txt
 echo "";
 echo "";
 cat /opt/couchbase/VERSION.txt

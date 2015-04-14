@@ -1,5 +1,5 @@
-FROM ubuntu:14.04
-MAINTAINER Dale-Kurt Murray "dalekurt.murray"
+FROM stackbrew/ubuntu:14.04
+MAINTAINER Dale-Kurt Murray "dalekurt.murray@gmail.com"
  
 # Basic environment setup
 # note: SpiderMonkey build req's: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites
@@ -23,6 +23,7 @@ RUN mkdir -p /app \
 	&& mkdir -p /app/resources \
 	&& mkdir -p /app/conf \
 	&& mkdir -p /app/backup \
+	&& mkdir -p /app/logs \
 	&& chown -R couchbase:couchbase /app
 VOLUME ["/app/data"]
 VOLUME ["/app/backup"]
