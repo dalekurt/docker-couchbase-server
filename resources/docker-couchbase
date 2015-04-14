@@ -1,0 +1,212 @@
+#!/bin/bash
+
+function logIt() {
+	logFile="/app/logs/docker-couchbase.log"
+	timestamp=$( date )
+	if [ -z "$2" ];then
+		severity="INFO"
+	else
+		severity="$2"
+	fi
+	hostname=`hostname`
+	facility_label="user-level"
+	facility=1
+	echo "{ \"timestamp\": \"$timestamp\", \"host\": \"${hostname}\", \"server_software\": [ \"\" ], \"facility_label\": \"${facility_label}\", \"severity\":\"$severity\", \"message\": \"$1\" }" >> $logFile
+}
+
+# Log to Lumberjack
+logIt "Couchbase started with: $@"
+
+function untilsuccessful() {
+    "$@"
+    while [ $? -ne 0 ]
+    do
+	    echo "Retrying...";
+	    sleep 1
+        "$@"
+    done
+}
+
+function startSysLogging() {
+	service rsyslog start
+}
+
+# Ensure proper directories before startup
+cd /opt/couchbase
+mkdir -p var/lib/couchbase var/lib/couchbase/config var/lib/couchbase/data \
+    var/lib/couchbase/stats var/lib/couchbase/logs var/lib/moxi
+touch /var/lib/couchbase/logs/dummy.log
+chown -R couchbase:couchbase var
+# Start the daemon
+/etc/init.d/couchbase-server start
+
+# keep the process running with call to bash
+cat /app/resources/couchbase.txt
+echo "";
+cat /app/resources/docker.txt
+echo "";
+echo "";
+cat /opt/couchbase/VERSION.txt
+echo "";
+sleep 2;
+echo "* changing data directory to point to /app/data";
+untilsuccessful /opt/couchbase/bin/couchbase-cli node-init -c 127.0.0.1:8091 \
+	-u Administrator -p password --node-init-data-path=/app/data
+echo "";
+echo "* changing index directory to point to /app/index";
+untilsuccessful /opt/couchbase/bin/couchbase-cli node-init -c 127.0.0.1:8091 \
+	-u Administrator -p password --node-init-data-path=/app/index
+echo "";
+
+bucketList=untilsuccessful /opt/couchbase/bin/couchbase-cli bucket-list -c 127.0.0.1:8091 \
+	-u Administrator -p password 
+if [ -z "$bucketList" ]; then
+	echo "* No buckets currently defined";
+else
+	echo "* current bucket list:";
+	echo $bucketList;
+fi
+echo "";
+
+# Set reasonable defaults values
+if [ -z "$USERNAME" ]; then
+	USER="Administrator"
+fi
+if [ -z "$PASSWORD" ]; then
+	PASSWORD="password"
+fi
+
+# Conditional logic based on command sent in
+case "$1" in
+	start)
+		startSysLogging;
+		echo "Couchbase Started!";
+		echo "------------------";
+	;;
+	transfer)
+		startSysLogging;
+		echo "* transfer process starting"
+		if [ -z $REMOTE_HOST ]; then
+			echo "REMOTE_HOST not defined! Cancelling transfer.";
+			exit 1;
+		elif [ -z $BUCKETS ]; then
+			echo "BUCKETS not defined! Must have a comma seperated list of buckets to transfer.";
+			exit 1;
+		else
+			IFS=","
+			for bucket in $BUCKETS; do
+				echo "Transfering '$bucket' bucket";
+				/opt/couchbase/bin/cbtransfer http://$REMOTE_HOST http://127.0.0.1:8091 -u $USER -p $PASSWORD -b $bucket -B $bucket
+			done
+			
+			echo "Couchbase Started and Transferred!";
+			echo "----------------------------------";
+			echo "";
+			bucketList=untilsuccessful /opt/couchbase/bin/couchbase-cli bucket-list -c 127.0.0.1:8091 \
+				-u $USER -p $PASSWORD 
+			if [ -z "$bucketList" ]; then
+				echo "* Still no buckets defined post-transfer";
+			else
+				echo "* Bucket list post-transfer:";
+				echo $bucketList;
+			fi
+		fi
+	;;
+	create)
+		startSysLogging;
+		# Determine the create script
+		if [ -z "$CREATE_SCRIPT" ];then
+			if [ -z "$2" ]; then
+				CREATE_SCRIPT=default.conf
+			else
+				CREATE_SCRIPT=$2
+			fi
+		fi
+		echo "* creating buckets from "$CREATE_SCRIPT;
+		if [ -e /app/conf/$CREATE_SCRIPT ];then 
+			configuration=`cat /app/conf/$CREATE_SCRIPT`
+			echo "     - creation script '$CREATE_SCRIPT' found on volume share";
+			printf "     - buckets to be configured: %s\n" `echo $configuration | jsawk 'return this.name'`;
+		else
+			echo "ERROR: could not find '/app/conf/$CREATE_SCRIPT'; stopping configuration/creation process";
+			exit 1;
+		fi
+		# define cluster ramsize as sum of bucket sizes unless explictly set
+		if [ -z "$CLUSTER_RAMSIZE" ]; then
+			CLUSTER_RAMSIZE=`echo $configuration | jsawk 'return this.size ? this.size : 100' | jsawk -a 'return _.reduce(this, function(memo,num) { return memo + num; }, 0);'`
+			echo "* Couchbase cluster size not explicit set (CLUSTER_RAMSIZE) so using aggregate of bucket sizes: $CLUSTER_RAMSIZE";
+		else
+			echo "* Couchbase cluster size was explicity set to $CLUSTER_RAMSIZE";
+			MIN_RAMSIZE=`echo $configuration | jsawk 'return this.size ? this.size : 100' | jsawk -a 'return _.reduce(this, function(memo,num) { return memo + num; }, 0);'`
+			if [ $CLUSTER_RAMSIZE < $MIN_RAMSIZE ]; then
+				echo "ERROR: the buckets require at least $MIN_RAMSIZE to be configured correctly. Quitting.";
+				exit 1;
+			fi
+		fi
+		
+		BUCKETS=`echo $configuration | jsawk -n 'out(this.name)'`
+		for bucket in $BUCKETS; do
+			echo "";
+			echo "* Creating '$bucket' bucket";
+			bucketConfig=`echo $configuration | jsawk -a "return _.where(this,{name: \"$bucket\"})"`
+			cbType=`echo $bucketConfig | jsawk -n 'out(this.type ? this.type : "couchbase")'`
+			cbSize=`echo $bucketConfig | jsawk -n 'out(this.size ? this.size : 100)'`
+			cbReplica=`echo $bucketConfig | jsawk -n 'out(this.replica ? this.replica : "0")'`
+			cbFlush=`echo $bucketConfig | jsawk -n 'out(this.flush ? this.flush : "0")'`
+			/opt/couchbase/bin/couchbase-cli bucket-create -c 127.0.0.1:8091 --bucket=$bucket \
+				--bucket-type=$cbType  \
+				--bucket-ramsize=$cbSize  \
+				--bucket-replica=$cbReplica  \
+				--enable-flush=$cbFlush  \
+				--wait
+		done
+		
+		echo "* Bucket list post-transfer:";
+		echo `GET /buckets | jsawk 'return this.name'`
+		
+		echo "* adding self to new Couchbase cluster";
+		/opt/couchbase/bin/couchbase-cli cluster-init -c 127.0.0.1:8091 --cluster-init-username=$USER --cluster-init-password=$PASSWORD --cluster-init-ramsize=$CLUSTER_RAMSIZE --wait
+		echo "";
+		echo "Couchbase is READY!"
+	;;
+	join)
+		startSysLogging;
+		if [ -z "$CLUSTER_ADDRESS" ]; then
+			if [ -z "$2" ]; then
+				echo "ERROR: no CLUSTER_ADDRESS specified! Exiting ...";
+				exit 1;
+			else
+				CLUSTER_ADDRESS=$2
+			fi
+		fi
+		echo "* joining Couchbase cluster at ";
+		if [ -z "$REBALANCE" ]; then
+			/opt/couchbase/bin/couchbase-cli rebalance -c 127.0.0.1:8091 
+				--server-add=$CLUSTER_ADDRESS \
+				--server-add-username=$USER \
+				--server-add-password=$PASSWORD \
+				--wait
+		else
+			/opt/couchbase/bin/couchbase-cli server-add -c 127.0.0.1:8091 \
+				--server-add=$CLUSTER_ADDRESS \
+				--server-add-username=$USER \
+				--server-add-password=$PASSWORD \
+				--wait
+		fi
+	;;
+	restore)
+		startSysLogging;
+		echo "* restoring Couchbase from backup";
+		/opt/couchbase/bin/couchbase-cli cbrestore /app/backup http://127.0.0.1:8091 -v 
+		 
+		echo "* adding self to new Couchbase cluster";
+		/opt/couchbase/bin/couchbase-cli cluster-init -c 127.0.0.1:8091 --cluster-init-username=$USER --cluster-init-password=$PASSWORD --cluster-init-ramsize=$CLUSTER_RAMSIZE --wait		
+	;;
+esac
+	
+
+trap "echo Exiting Couchbase Service; /etc/init.d/couchbase-server stop; exit 0;" SIGINT SIGTERM SIGTSTP
+
+while true; do
+	sleep 1;
+done
