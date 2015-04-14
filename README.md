@@ -4,14 +4,14 @@ Builds a docker image for Couchbase. This Dockerfile and supporting scripts for 
 
 ## Summary
 
-Repository name in Docker Hub: [dalekurt/couchbase](https://hub.docker.com/u/dalekurt/couchbase)
+Repository name in Docker Hub: [dalekurt/couchbase-server](https://hub.docker.com/u/dalekurt/couchbase-server)
 
-This repository contains Dockerized ZooKeeper, published to the public Docker Hub via automated build.
+This repository contains Dockerized Couchbase, published to the public Docker Hub via automated build.
 
 ## Usage
-```docker run -d -p 11210:11210 -p 11211:11211 -p 8091:8091 -p 8092:8092 --name couchbase dalekurt/couchbase```
+```docker run -d -p 11210:11210 -p 11211:11211 -p 8091:8091 -p 8092:8092 --name couchbase dalekurt/couchbase-server```
 
 ## Build
 
-```docker build -t dalekurt/couchbase .```
+```docker build -t dalekurt/couchbase-server .```
 
