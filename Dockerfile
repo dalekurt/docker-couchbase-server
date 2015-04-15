@@ -1,3 +1,9 @@
+# Couchbase Server for Ubuntu 14.04
+#
+# GitHub - http://github.com/dalekurt/docker-couchbase-server
+# Docker Hub - http://hub.docker.com/u/dalekurt/couchbase-server
+# Twitter - http://www.twitter.com/dalekurt
+
 FROM stackbrew/ubuntu:14.04
 MAINTAINER Dale-Kurt Murray "dalekurt.murray@gmail.com"
  
@@ -9,8 +15,11 @@ RUN apt-get update \
 	&& dpkg-reconfigure locales
 
 # Downloading and Installing Couchbase
-ENV CB_VERSION 2.2.0
-ENV CB_FILENAME couchbase-server-enterprise_${CB_VERSION}_x86_64.deb
+ENV CB_VERSION 3.0.3
+# The file name has changed for previous version 2.x.x
+# ENV CB_FILENAME couchbase-server-enterprise_${CB_VERSION}_x86_64.deb
+#
+ENV CB_FILENAME couchbase-server-enterprise_${CB_VERSION}-ubuntu12.04_amd64.deb
 ENV CB_SOURCE http://packages.couchbase.com/releases/$CB_VERSION/$CB_FILENAME
 RUN wget -O/tmp/$CB_FILENAME $CB_SOURCE  \ 
 	&& dpkg -i /tmp/$CB_FILENAME  \

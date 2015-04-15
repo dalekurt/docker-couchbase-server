@@ -34,7 +34,7 @@ function startSysLogging() {
 # Ensure proper directories before startup
 cd /opt/couchbase
 mkdir -p var/lib/couchbase var/lib/couchbase/config var/lib/couchbase/data \
-    var/lib/couchbase/stats var/lib/couchbase/logs var/lib/moxi
+    var/lib/couchbase/stats var/lib/couchbase/logs var/lib/moxi 
 touch var/lib/couchbase/logs/dummy.log
 chown -R couchbase:couchbase var
 
