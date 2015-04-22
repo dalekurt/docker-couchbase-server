@@ -6,7 +6,11 @@
 
 FROM stackbrew/ubuntu:14.04
 MAINTAINER Dale-Kurt Murray "dalekurt.murray@gmail.com"
- 
+
+ENV CB_USERNAME		Administrator
+ENV CB_PASSWORD		couchbaseadmin
+ENV CB_BUCKET		mystuff
+
 # Basic environment setup
 # note: SpiderMonkey build req's: https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Build_Instructions/Linux_Prerequisites
 ENV DEBIAN_FRONTEND noninteractive
@@ -21,7 +25,8 @@ ENV CB_VERSION 3.0.3
 #
 ENV CB_FILENAME couchbase-server-enterprise_${CB_VERSION}-ubuntu12.04_amd64.deb
 ENV CB_SOURCE http://packages.couchbase.com/releases/$CB_VERSION/$CB_FILENAME
-RUN wget -O/tmp/$CB_FILENAME $CB_SOURCE  \ 
+
+RUN wget -O/tmp/$CB_FILENAME $CB_SOURCE  \
 	&& dpkg -i /tmp/$CB_FILENAME  \
 	&& rm /tmp/$CB_FILENAME
 
@@ -49,6 +54,9 @@ EXPOSE 8091 8092 11210
 ADD resources/couchbase.txt /app/resources/couchbase.txt
 ADD resources/docker.txt /app/resources/docker.txt
 ADD resources/default.conf /app/conf/default.conf
+ADD scripts/setup.sh /tmp/setup.sh
+
+RUN /tmp/setup.sh
 
 ENTRYPOINT ["docker-couchbase"]
 CMD	["start"]

@@ -55,15 +55,13 @@ echo "";
 sleep 2;
 echo "* changing data directory to point to /app/data";
 untilsuccessful /opt/couchbase/bin/couchbase-cli node-init -c 127.0.0.1:8091 \
-	-u Administrator -p password --node-init-data-path=/app/data
+	-u $CB_USERNAME -p $CB_PASSWORD --node-init-data-path=/app/data
 echo "";
 echo "* changing index directory to point to /app/index";
 untilsuccessful /opt/couchbase/bin/couchbase-cli node-init -c 127.0.0.1:8091 \
-	-u Administrator -p password --node-init-data-path=/app/index
 echo "";
-
 bucketList=untilsuccessful /opt/couchbase/bin/couchbase-cli bucket-list -c 127.0.0.1:8091 \
-	-u Administrator -p password 
+	-u $CB_USERNAME -p $CB_PASSWORD
 if [ -z "$bucketList" ]; then
 	echo "* No buckets currently defined";
 else
