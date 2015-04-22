@@ -34,20 +34,16 @@ function startSysLogging() {
 # Ensure proper directories before startup
 cd /opt/couchbase
 mkdir -p var/lib/couchbase var/lib/couchbase/config var/lib/couchbase/data \
-    var/lib/couchbase/stats var/lib/couchbase/logs var/lib/moxi 
+    var/lib/couchbase/stats var/lib/couchbase/logs var/lib/moxi
 touch var/lib/couchbase/logs/dummy.log
 chown -R couchbase:couchbase var
-
-# Increase ulimits
-ulimit -n 40960
-ulimit -c unlimited
-ulimit -l unlimited
-
 # Start the daemon
 /etc/init.d/couchbase-server start
 
 # keep the process running with call to bash
 cat /app/resources/couchbase.txt
+echo "";
+cat /app/resources/docker.txt
 echo "";
 echo "";
 cat /opt/couchbase/VERSION.txt
@@ -55,13 +51,15 @@ echo "";
 sleep 2;
 echo "* changing data directory to point to /app/data";
 untilsuccessful /opt/couchbase/bin/couchbase-cli node-init -c 127.0.0.1:8091 \
-	-u $CB_USERNAME -p $CB_PASSWORD --node-init-data-path=/app/data
+	-u $CB_USERNAME -p $CB_USERNAME --node-init-data-path=/app/data
 echo "";
 echo "* changing index directory to point to /app/index";
 untilsuccessful /opt/couchbase/bin/couchbase-cli node-init -c 127.0.0.1:8091 \
+	-u $CB_USERNAME -p $CB_USERNAME --node-init-data-path=/app/index
 echo "";
+
 bucketList=untilsuccessful /opt/couchbase/bin/couchbase-cli bucket-list -c 127.0.0.1:8091 \
-	-u $CB_USERNAME -p $CB_PASSWORD
+	-u $CB_USERNAME -p $CB_USERNAME 
 if [ -z "$bucketList" ]; then
 	echo "* No buckets currently defined";
 else
@@ -72,10 +70,10 @@ echo "";
 
 # Set reasonable defaults values
 if [ -z "$USERNAME" ]; then
-	USER="Administrator"
+	USER="$CB_USERNAME"
 fi
 if [ -z "$PASSWORD" ]; then
-	PASSWORD="password"
+	PASSWORD="$CB_PASSWORD"
 fi
 
 # Conditional logic based on command sent in
@@ -98,14 +96,14 @@ case "$1" in
 			IFS=","
 			for bucket in $BUCKETS; do
 				echo "Transfering '$bucket' bucket";
-				/opt/couchbase/bin/cbtransfer http://$REMOTE_HOST http://127.0.0.1:8091 -u $USER -p $PASSWORD -b $bucket -B $bucket
+				/opt/couchbase/bin/cbtransfer http://$REMOTE_HOST http://127.0.0.1:8091 -u $CB_USERNAME -p $CB_PASSWORD -b $bucket -B $bucket
 			done
 			
 			echo "Couchbase Started and Transferred!";
 			echo "----------------------------------";
 			echo "";
 			bucketList=untilsuccessful /opt/couchbase/bin/couchbase-cli bucket-list -c 127.0.0.1:8091 \
-				-u $USER -p $PASSWORD 
+				-u $CB_USERNAME -p $CB_PASSWORD 
 			if [ -z "$bucketList" ]; then
 				echo "* Still no buckets defined post-transfer";
 			else
@@ -185,14 +183,14 @@ case "$1" in
 		if [ -z "$REBALANCE" ]; then
 			/opt/couchbase/bin/couchbase-cli rebalance -c 127.0.0.1:8091 
 				--server-add=$CLUSTER_ADDRESS \
-				--server-add-username=$USER \
-				--server-add-password=$PASSWORD \
+				--server-add-username=$CB_USERNAME \
+				--server-add-password=$CB_PASSWORD \
 				--wait
 		else
 			/opt/couchbase/bin/couchbase-cli server-add -c 127.0.0.1:8091 \
 				--server-add=$CLUSTER_ADDRESS \
-				--server-add-username=$USER \
-				--server-add-password=$PASSWORD \
+				--server-add-username=$CB_USERNAME \
+				--server-add-password=$CB_PASSWORD \
 				--wait
 		fi
 	;;
@@ -202,7 +200,7 @@ case "$1" in
 		/opt/couchbase/bin/couchbase-cli cbrestore /app/backup http://127.0.0.1:8091 -v 
 		 
 		echo "* adding self to new Couchbase cluster";
-		/opt/couchbase/bin/couchbase-cli cluster-init -c 127.0.0.1:8091 --cluster-init-username=$USER --cluster-init-password=$PASSWORD --cluster-init-ramsize=$CLUSTER_RAMSIZE --wait		
+		/opt/couchbase/bin/couchbase-cli cluster-init -c 127.0.0.1:8091 --cluster-init-username=$CB_USERNAME --cluster-init-password=$CB_PASSWORD --cluster-init-ramsize=$CLUSTER_RAMSIZE --wait		
 	;;
 esac
 	

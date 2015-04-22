@@ -56,7 +56,7 @@ ADD resources/docker.txt /app/resources/docker.txt
 ADD resources/default.conf /app/conf/default.conf
 ADD scripts/setup.sh /tmp/setup.sh
 
-RUN /tmp/setup.sh
+#RUN /tmp/setup.sh
 
 ENTRYPOINT ["docker-couchbase"]
 CMD	["start"]

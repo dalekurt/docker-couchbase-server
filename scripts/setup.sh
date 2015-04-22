@@ -9,6 +9,6 @@
   --wait
 
 # Restore from backup
-/opt/couchbase/bin/cbrestore /app/backups http://${CB_USERNAME}:${CB_PASSWORD}@localhost:8091 \
+/opt/couchbase/bin/cbrestore /app/backup http://${CB_USERNAME}:${CB_PASSWORD}@localhost:8091 \
   --bucket-source=${CB_BUCKET} \
   --bucket-destination=${CB_BUCKET}
