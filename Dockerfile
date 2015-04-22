@@ -49,14 +49,14 @@ RUN export PATH=$PATH:/opt/couchbase/bin \
 	&& echo "export PATH=$PATH:/opt/couchbase/bin" >> /etc/bash.bashrc
 EXPOSE 8091 8092 11210
 
+# Add backup to /app/backup
+ADD backup /app/backup
 
 # Add Resources
 ADD resources/couchbase.txt /app/resources/couchbase.txt
 ADD resources/docker.txt /app/resources/docker.txt
 ADD resources/default.conf /app/conf/default.conf
 ADD scripts/setup.sh /tmp/setup.sh
-
-#RUN /tmp/setup.sh
 
 ENTRYPOINT ["docker-couchbase"]
 CMD	["start"]
