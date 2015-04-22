@@ -1,6 +1,6 @@
 #!/bin/bash
 # Create bucket
-couchbase-cli bucket-create -c localhost:8091 -u ${CB_USERNAME} -p ${CB_PASSWORD} \
+/opt/couchbase/bin/couchbase-cli bucket-create -c localhost:8091 -u ${CB_USERNAME} -p ${CB_PASSWORD} \
   --bucket=${CB_BUCKET} \
   --bucket-type=couchbase \
   --bucket-port=11222 \
@@ -9,6 +9,6 @@ couchbase-cli bucket-create -c localhost:8091 -u ${CB_USERNAME} -p ${CB_PASSWORD
   --wait
 
 # Restore from backup
-cbrestore /app/backups http://${CB_USERNAME}:${CB_PASSWORD}@localhost:8091 \
+/opt/couchbase/bin/cbrestore /app/backups http://${CB_USERNAME}:${CB_PASSWORD}@localhost:8091 \
   --bucket-source=${CB_BUCKET} \
   --bucket-destination=${CB_BUCKET}
