@@ -1,22 +1,5 @@
 #!/bin/bash
 
-function logIt() {
-	logFile="/app/logs/docker-couchbase.log"
-	timestamp=$( date )
-	if [ -z "$2" ];then
-		severity="INFO"
-	else
-		severity="$2"
-	fi
-	hostname=`hostname`
-	facility_label="user-level"
-	facility=1
-	echo "{ \"timestamp\": \"$timestamp\", \"host\": \"${hostname}\", \"server_software\": [ \"\" ], \"facility_label\": \"${facility_label}\", \"severity\":\"$severity\", \"message\": \"$1\" }" >> $logFile
-}
-
-# Log to Lumberjack
-logIt "Couchbase started with: $@"
-
 function untilsuccessful() {
     "$@"
     while [ $? -ne 0 ]
@@ -27,9 +10,8 @@ function untilsuccessful() {
     done
 }
 
-function startSysLogging() {
-	service rsyslog start
-}
+LOCAL_IP=`hostname --ip-address`
+IP=${IP:-$LOCAL_IP}
 
 # Ensure proper directories before startup
 cd /opt/couchbase
@@ -42,9 +24,6 @@ chown -R couchbase:couchbase var
 
 # keep the process running with call to bash
 cat /app/resources/couchbase.txt
-echo "";
-cat /app/resources/docker.txt
-echo "";
 echo "";
 cat /opt/couchbase/VERSION.txt
 echo "";
@@ -79,12 +58,10 @@ fi
 # Conditional logic based on command sent in
 case "$1" in
 	start)
-		startSysLogging;
 		echo "Couchbase Started!";
 		echo "------------------";
 	;;
 	transfer)
-		startSysLogging;
 		echo "* transfer process starting"
 		if [ -z $REMOTE_HOST ]; then
 			echo "REMOTE_HOST not defined! Cancelling transfer.";
@@ -113,7 +90,6 @@ case "$1" in
 		fi
 	;;
 	create)
-		startSysLogging;
 		# Determine the create script
 		if [ -z "$CREATE_SCRIPT" ];then
 			if [ -z "$2" ]; then
@@ -165,12 +141,11 @@ case "$1" in
 		echo `GET /buckets | jsawk 'return this.name'`
 		
 		echo "* adding self to new Couchbase cluster";
-		/opt/couchbase/bin/couchbase-cli cluster-init -c 127.0.0.1:8091 --cluster-init-username=$USER --cluster-init-password=$PASSWORD --cluster-init-ramsize=$CLUSTER_RAMSIZE --wait
+		/opt/couchbase/bin/couchbase-cli cluster-init -c 127.0.0.1:8091 --cluster-init-username=$CB_USERNAME --cluster-init-password=$CB_PASSWORD --cluster-init-ramsize=$CLUSTER_RAMSIZE --wait
 		echo "";
 		echo "Couchbase is READY!"
 	;;
 	join)
-		startSysLogging;
 		if [ -z "$CLUSTER_ADDRESS" ]; then
 			if [ -z "$2" ]; then
 				echo "ERROR: no CLUSTER_ADDRESS specified! Exiting ...";
@@ -195,10 +170,10 @@ case "$1" in
 		fi
 	;;
 	restore)
-		startSysLogging;
 		echo "* restoring Couchbase from backup";
-		/opt/couchbase/bin/couchbase-cli cbrestore /app/backup http://127.0.0.1:8091 -v 
-		 
+		/opt/couchbase/bin/couchbase-cli cbrestore /app/backup  http://$CB_USERNAME:$CB_PASSWORD@127.0.0.1:8091 \
+		--bucket-source=$CB_BUCKET -v
+
 		echo "* adding self to new Couchbase cluster";
 		/opt/couchbase/bin/couchbase-cli cluster-init -c 127.0.0.1:8091 --cluster-init-username=$CB_USERNAME --cluster-init-password=$CB_PASSWORD --cluster-init-ramsize=$CLUSTER_RAMSIZE --wait		
 	;;
